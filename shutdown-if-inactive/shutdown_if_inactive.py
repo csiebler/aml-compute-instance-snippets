@@ -53,16 +53,16 @@ def get_uptime():
     return uptime_seconds
 
 notebooks = get_notebook_sessions()
+ci_name = get_compute_instance_name()
 
 if is_instance_idle(notebooks) and get_uptime() > idle_threshold_in_sec:
     # Get name of current Compute Instance
-    ci_name = get_compute_instance_name()
     print(f'Compute Instance {ci_name} will be shut down!')
-    # Connect to workspace
+    # Connect to workspace and stop instance
     ws = Workspace.from_config()
     ct = ComputeInstance(ws, ci_name)
-    print("All notebooks are idle:")
-    print(json.dumps(notebooks, indent=2))
     ct.stop(wait_for_completion=False, show_output=False)
 else:
     print(f'Compute Instance {ci_name} still has notebooks running, will not shut it down')
+    print("Details:")
+    print(json.dumps(notebooks, indent=2))
