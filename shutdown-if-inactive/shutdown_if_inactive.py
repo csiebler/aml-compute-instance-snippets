@@ -10,13 +10,13 @@ idle_threshold_in_sec = 3600
 # Jupyter runs on Compute Instance on http on port 8888
 notebook_session_url = f'http://localhost:8888/api/sessions'
 
-def get_compute_instance_details():
+def get_compute_instance_name():
     instance = None
     ci_path = "/mnt/azmnt/.nbvm"
     if os.path.isfile(ci_path):
         with open(ci_path, 'r') as f:
             instance = dict(x.strip().split('=') for x in f)
-    return instance
+    return instance['instance']
 
 def get_notebook_sessions():
     response = requests.get(notebook_session_url)
@@ -47,18 +47,22 @@ def is_instance_idle(notebooks):
             return False
     return True
 
-compute_instance = get_compute_instance_details()
-ci_name = compute_instance['instance']
+def get_uptime():
+    with open('/proc/uptime', 'r') as f:
+        uptime_seconds = float(f.readline().split()[0])
+    return uptime_seconds
 
 notebooks = get_notebook_sessions()
 
-print(compute_instance)
-print(json.dumps(notebooks, indent=2))
-
-if is_instance_idle(notebooks):
+if is_instance_idle(notebooks) and get_uptime() > idle_threshold_in_sec:
+    # Get name of current Compute Instance
+    ci_name = get_compute_instance_name()
     print(f'Compute Instance {ci_name} will be shut down!')
+    # Connect to workspace
     ws = Workspace.from_config()
     ct = ComputeInstance(ws, ci_name)
+    print("All notebooks are idle:")
+    print(json.dumps(notebooks, indent=2))
     ct.stop(wait_for_completion=False, show_output=False)
 else:
     print(f'Compute Instance {ci_name} still has notebooks running, will not shut it down')
